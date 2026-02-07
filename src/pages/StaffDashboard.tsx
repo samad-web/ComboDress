@@ -119,6 +119,7 @@ Date: ${new Date(order.createdAt).toLocaleString()}
 
 Customer:
 Name: ${order.customerName}
+Email: ${order.customerEmail}
 Phone: ${order.customerCountryCode} ${order.customerPhone}
 Address: ${order.customerAddress}
 
@@ -461,6 +462,7 @@ Status: ${order.status.toUpperCase()}
                                         <div style={{ marginTop: '8px', padding: '8px', background: 'var(--bg-secondary)', borderRadius: '8px', fontSize: '0.85rem' }}>
                                             <div style={{ fontWeight: 600, marginBottom: '4px' }}>Customer Details:</div>
                                             <div>{order.customerName}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{order.customerEmail}</div>
                                             <div>{order.customerCountryCode && <span style={{ color: 'var(--text-muted)', marginRight: '4px' }}>{order.customerCountryCode}</span>}{order.customerPhone}</div>
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{order.customerAddress}</div>
                                         </div>

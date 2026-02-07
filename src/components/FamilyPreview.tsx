@@ -4,7 +4,7 @@ import { ShoppingCart, ArrowLeft, Check, Users } from 'lucide-react';
 
 interface FamilyPreviewProps {
     design: Design | null;
-    onPlaceOrder: (designId: string, comboType: ComboType, sizes: Record<string, string>, customerDetails: { name: string; phone: string; address: string }) => Promise<void>;
+    onPlaceOrder: (designId: string, comboType: ComboType, sizes: Record<string, string>, customerDetails: { name: string; email: string; phone: string; address: string; countryCode: string }) => Promise<void>;
     onBack: () => void;
 }
 
@@ -18,6 +18,7 @@ const FamilyPreview: React.FC<FamilyPreviewProps> = ({ design, onPlaceOrder, onB
     });
     const [customerDetails, setCustomerDetails] = useState({
         name: '',
+        email: '',
         phone: '',
         countryCode: '+91',
         address: ''
@@ -59,7 +60,7 @@ const FamilyPreview: React.FC<FamilyPreviewProps> = ({ design, onPlaceOrder, onB
         setShowOrderForm(false);
         setOrderSuccess(false);
         setShowErrors(false);
-        setCustomerDetails({ name: '', phone: '', countryCode: '+91', address: '' });
+        setCustomerDetails({ name: '', email: '', phone: '', countryCode: '+91', address: '' });
         setIsSubmitting(false);
         if (orderSuccess) {
             onBack();
@@ -220,6 +221,17 @@ const FamilyPreview: React.FC<FamilyPreviewProps> = ({ design, onPlaceOrder, onB
                                             placeholder="Enter your full name"
                                             value={customerDetails.name}
                                             onChange={(e) => setCustomerDetails({ ...customerDetails, name: e.target.value })}
+                                            style={{ width: '100%', padding: '12px' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Email <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.8rem' }}>(Optional)</span></label>
+                                        <input
+                                            type="email"
+                                            className="input"
+                                            placeholder="Enter your email"
+                                            value={customerDetails.email}
+                                            onChange={(e) => setCustomerDetails({ ...customerDetails, email: e.target.value })}
                                             style={{ width: '100%', padding: '12px' }}
                                         />
                                     </div>

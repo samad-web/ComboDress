@@ -58,7 +58,10 @@ function App() {
         const unsubOrders = subscribeToOrders((payload: any) => {
             if (payload.eventType === 'INSERT') {
                 const newOrder = mapOrderFromDB(payload.new);
-                setOrders(prev => [newOrder, ...prev]);
+                setOrders(prev => {
+                    if (prev.some(o => o.id === newOrder.id)) return prev;
+                    return [newOrder, ...prev];
+                });
             } else if (payload.eventType === 'UPDATE') {
                 const updatedOrder = mapOrderFromDB(payload.new);
                 setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
@@ -150,17 +153,23 @@ function App() {
         setActiveTab('dashboard');
     };
 
-    const handlePlaceOrder = async (designId: string, comboType: ComboType, selectedSizes: Record<string, string>, customerDetails: { name: string; phone: string; address: string }) => {
-        // ...
-        await submitOrder({ designId, comboType, selectedSizes, ...customerDetails });
-        // No need to fetchOrders manually anymore, subscription will catch it
-        // But keeping it for immediate local feedback if net is slow isn't bad, though effectively redundant with optimistic updates or real-time.
-        // Actually, submitOrder doesn't return the full object with ID optionally.
-        // Let's rely on subscription. But fetchOrders ensures sync.
-        // fetchOrders also handles fallback mode.
-        if (!import.meta.env.VITE_SUPABASE_URL) {
-            const ordersData = await fetchOrders();
-            setOrders(ordersData);
+    const handlePlaceOrder = async (designId: string, comboType: ComboType, selectedSizes: Record<string, string>, customerDetails: { name: string; email: string; phone: string; address: string; countryCode?: string }) => {
+        const orderPayload: Partial<Order> = {
+            designId,
+            comboType,
+            selectedSizes,
+            customerName: customerDetails.name,
+            customerEmail: customerDetails.email || '',
+            customerPhone: customerDetails.phone,
+            customerCountryCode: customerDetails.countryCode || '+91',
+            customerAddress: customerDetails.address
+        };
+
+        const newOrder = await submitOrder(orderPayload);
+
+        if (newOrder) {
+            setOrders(prev => [newOrder, ...prev]);
+            alert('Order placed successfully!');
         }
     };
 
@@ -219,7 +228,7 @@ function App() {
                 <div style={{ textAlign: 'center' }}>
                     <div className="spin" style={{
                         width: '40px', height: '40px', border: '4px solid var(--border-subtle)',
-                        borderTopColor: 'var(--primary)', borderRadius: '50%'
+                        borderTopColor: 'var(--primary)', borderRadius: '50%', margin: '0 auto'
                     }} />
                     <p style={{ marginTop: '16px', color: 'var(--text-muted)' }}>Loading Combo Dress...</p>
                 </div>
@@ -316,6 +325,7 @@ function App() {
             }}>
                 © 2026 Combodress.com • Developed by <a href="https://sirahdigital.in/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Sirah Digital</a>
             </footer>
+
         </div>
     );
 }

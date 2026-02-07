@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { Design, ComboType, AdultSizeStock, KidsSizeStock } from '../types';
-import { Sparkles, ArrowRight, CheckCircle, Search, Filter, Users, Baby, Download, X } from 'lucide-react';
+import { Sparkles, ArrowRight, CheckCircle, Filter, Users, Baby, Download, X } from 'lucide-react';
 import { downloadSingleImage } from '../data';
 
 interface CustomerGalleryProps {
@@ -12,7 +12,6 @@ interface CustomerGalleryProps {
 type FilterType = 'ALL' | ComboType | 'boys' | 'girls' | 'unisex';
 
 const CustomerGallery: React.FC<CustomerGalleryProps> = ({ designs, onSelect, selectedDesign }) => {
-    const [search, setSearch] = useState('');
     const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
     const [showResults, setShowResults] = useState(false);
     const [filterSizes, setFilterSizes] = useState<Record<string, string>>({
@@ -48,16 +47,7 @@ const CustomerGallery: React.FC<CustomerGalleryProps> = ({ designs, onSelect, se
 
     const filteredDesigns = useMemo(() => {
         return designs.filter(design => {
-            // 1. Search Filter (Name, Color, Fabric)
-            const searchLower = search.toLowerCase();
-            const matchesSearch =
-                design.name.toLowerCase().includes(searchLower) ||
-                design.color.toLowerCase().includes(searchLower) ||
-                design.fabric.toLowerCase().includes(searchLower);
-
-            if (!matchesSearch) return false;
-
-            // 2. Combo / Category Filter
+            // 1. Combo / Category Filter
             let passesCategory = true;
             if (activeFilter !== 'ALL') {
                 if (['boys', 'girls', 'unisex'].includes(activeFilter)) {
@@ -111,7 +101,7 @@ const CustomerGallery: React.FC<CustomerGalleryProps> = ({ designs, onSelect, se
                 return (design.inventory[m] as any)[filterSizes[m]] > 0;
             });
         });
-    }, [designs, search, activeFilter, filterSizes]);
+    }, [designs, activeFilter, filterSizes]);
 
     return (
         <div style={{ padding: '0 max(16px, 2vw) 24px max(16px, 2vw)', width: '100%', overflowX: 'hidden' }}>
@@ -138,20 +128,7 @@ const CustomerGallery: React.FC<CustomerGalleryProps> = ({ designs, onSelect, se
                     boxShadow: 'var(--shadow-sm)'
                 }}
             >
-                <div style={{ position: 'relative' }}>
-                    <Search
-                        style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)' }}
-                        size={18}
-                    />
-                    <input
-                        type="text"
-                        className="input"
-                        placeholder="Search by fabric, color, or design name..."
-                        style={{ paddingLeft: '44px', height: '44px', fontSize: '1rem' }}
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
-                </div>
+
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
                     {/* All / Combos */}
@@ -311,9 +288,9 @@ const CustomerGallery: React.FC<CustomerGalleryProps> = ({ designs, onSelect, se
                                 <div style={{ textAlign: 'center', padding: '60px', opacity: 0.5, border: '1px dashed var(--border-subtle)', borderRadius: '24px' }}>
                                     <Filter size={64} style={{ marginBottom: '24px', color: 'var(--primary)' }} />
                                     <h2>No matching designs</h2>
-                                    <p>Try searching for a different term or selecting another category.</p>
+                                    <p>Try selecting another category.</p>
                                     <button
-                                        onClick={() => { setSearch(''); setActiveFilter('ALL'); }}
+                                        onClick={() => { setActiveFilter('ALL'); }}
                                         className="btn btn-ghost"
                                         style={{ marginTop: '16px' }}
                                     >

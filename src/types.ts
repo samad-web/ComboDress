@@ -50,6 +50,7 @@ export interface Order {
   comboType: ComboType;
   selectedSizes: Record<string, string>;
   customerName: string;
+  customerEmail?: string;
   customerPhone: string; // Stored as bigint in DB, but string in UI to preserve precision/formatting
   customerCountryCode: string;
   customerAddress: string;

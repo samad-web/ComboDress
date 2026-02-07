@@ -138,6 +138,7 @@ const mapOrderFromDB = (item: any): Order => ({
     selectedSizes: item.selectedsizes,
     status: item.status,
     customerName: item.customer_name || item.customerName || 'N/A',
+    customerEmail: item.customer_email || item.customerEmail || 'N/A',
     customerPhone: (item.customer_phone || item.customerPhone || 'N/A').toString(),
     customerCountryCode: item.customer_country_code || item.customerCountryCode || '+91',
     customerAddress: item.customer_address || item.customerAddress || 'N/A',
@@ -194,6 +195,7 @@ export const submitOrder = async (orderData: Partial<Order>) => {
             comboType: orderData.comboType!,
             selectedSizes: orderData.selectedSizes!,
             customerName: orderData.customerName!,
+            customerEmail: orderData.customerEmail!,
             customerPhone: orderData.customerPhone!,
             customerCountryCode: orderData.customerCountryCode || '+91',
             customerAddress: orderData.customerAddress!,
@@ -203,29 +205,50 @@ export const submitOrder = async (orderData: Partial<Order>) => {
         };
 
         localStorage.setItem(ORDERS_KEY, JSON.stringify([newOrder, ...orders]));
-        return;
+        return newOrder;
     }
+
+    const newId = Math.random().toString(36).substr(2, 9);
+    const timestamp = Date.now();
 
     const { error } = await supabase
         .from('orders')
         .insert({
-            id: Math.random().toString(36).substr(2, 9),
+            id: newId,
             designid: orderData.designId,
             combotype: orderData.comboType,
             selectedsizes: orderData.selectedSizes,
             customer_name: orderData.customerName,
+            customer_email: orderData.customerEmail,
             customer_phone: orderData.customerPhone, // Supabase will coerce string to bigint
             customer_country_code: orderData.customerCountryCode,
             customer_address: orderData.customerAddress,
             notes: orderData.notes,
             status: 'pending',
-            createdat: Date.now()
+            createdat: timestamp
         });
 
     if (error) {
         console.error('Error submitting order:', error);
         alert('Failed to submit order: ' + error.message);
+        throw error;
     }
+
+    return {
+        id: newId,
+        designId: orderData.designId!,
+        designName: 'Loading...', // Will be resolved by UI or refresh
+        comboType: orderData.comboType!,
+        selectedSizes: orderData.selectedSizes!,
+        status: 'pending',
+        customerName: orderData.customerName!,
+        customerEmail: orderData.customerEmail,
+        customerPhone: orderData.customerPhone!,
+        customerCountryCode: orderData.customerCountryCode,
+        customerAddress: orderData.customerAddress!,
+        notes: orderData.notes,
+        createdAt: timestamp
+    } as Order;
 };
 
 export const updateOrderStatus = async (orderId: string, status: string) => {
