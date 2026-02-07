@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Design, Order, ComboType } from './types';
-import { fetchDesigns, syncDesign, removeDesign, fetchOrders, submitOrder, updateOrderStatus } from './data';
+import { fetchDesigns, syncDesign, removeDesign, fetchOrders, submitOrder, updateOrderStatus, subscribeToOrders, subscribeToDesigns, mapOrderFromDB } from './data';
 import Navigation from './components/Navigation';
 import StaffDashboard from './pages/StaffDashboard';
 import DesignManager from './pages/DesignManager';
@@ -13,7 +13,7 @@ function App() {
     const [designs, setDesigns] = useState<Design[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
 
-    const [activeTab, setActiveTab] = useState('gallery');
+    const [activeTab, setActiveTab] = useState<string>('gallery');
     const [editingDesign, setEditingDesign] = useState<Design | null>(null);
     const [selectedDesign, setSelectedDesign] = useState<Design | null>(null);
     const [loading, setLoading] = useState(true);
@@ -53,7 +53,50 @@ function App() {
 
     useEffect(() => {
         init();
+
+        // Real-time subscription for Orders
+        const unsubOrders = subscribeToOrders((payload: any) => {
+            if (payload.eventType === 'INSERT') {
+                const newOrder = mapOrderFromDB(payload.new);
+                setOrders(prev => [newOrder, ...prev]);
+            } else if (payload.eventType === 'UPDATE') {
+                const updatedOrder = mapOrderFromDB(payload.new);
+                setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+            } else if (payload.eventType === 'DELETE') {
+                setOrders(prev => prev.filter(o => o.id !== payload.old.id));
+            }
+        });
+
+        // Real-time subscription for Designs (Inventory)
+        const unsubDesigns = subscribeToDesigns((payload: any) => {
+            // Helper to map DB row to Design object
+            const mapDesign = (item: any): Design => ({
+                id: item.id,
+                name: item.name,
+                color: item.color,
+                fabric: item.fabric,
+                imageUrl: item.imageurl,
+                inventory: item.inventory,
+                childType: item.childtype,
+                label: item.label,
+                createdAt: Number(item.createdat)
+            });
+
+            if (payload.eventType === 'INSERT') {
+                setDesigns(prev => [mapDesign(payload.new), ...prev]);
+            } else if (payload.eventType === 'UPDATE') {
+                setDesigns(prev => prev.map(d => d.id === payload.new.id ? mapDesign(payload.new) : d));
+            } else if (payload.eventType === 'DELETE') {
+                setDesigns(prev => prev.filter(d => d.id !== payload.old.id));
+            }
+        });
+
+        return () => {
+            unsubOrders();
+            unsubDesigns();
+        };
     }, []);
+
 
     const updateInventory = async (designId: string, category: string, size: string, newValue: number) => {
         let updatedDesign: Design | null = null;
@@ -107,18 +150,30 @@ function App() {
         setActiveTab('dashboard');
     };
 
-    const handlePlaceOrder = async (designId: string, comboType: ComboType, selectedSizes: Record<string, string>) => {
-        await submitOrder({ designId, comboType, selectedSizes });
-        const ordersData = await fetchOrders();
-        setOrders(ordersData);
+    const handlePlaceOrder = async (designId: string, comboType: ComboType, selectedSizes: Record<string, string>, customerDetails: { name: string; phone: string; address: string }) => {
+        // ...
+        await submitOrder({ designId, comboType, selectedSizes, ...customerDetails });
+        // No need to fetchOrders manually anymore, subscription will catch it
+        // But keeping it for immediate local feedback if net is slow isn't bad, though effectively redundant with optimistic updates or real-time.
+        // Actually, submitOrder doesn't return the full object with ID optionally.
+        // Let's rely on subscription. But fetchOrders ensures sync.
+        // fetchOrders also handles fallback mode.
+        if (!import.meta.env.VITE_SUPABASE_URL) {
+            const ordersData = await fetchOrders();
+            setOrders(ordersData);
+        }
     };
 
-
-
-
-
     const handleAcceptOrder = async (order: Order) => {
+        if (order.status !== 'pending') {
+            alert('This order has already been processed.');
+            return;
+        }
+
         for (const [member, size] of Object.entries(order.selectedSizes)) {
+            if (size === 'N/A') continue; // Skip if user selected None
+
+            // ... logic ...
             const category = member === 'Father' ? 'men' :
                 member === 'Mother' ? 'women' :
                     member === 'Son' ? 'boys' : 'girls';
@@ -130,15 +185,32 @@ function App() {
             }
         }
         await updateOrderStatus(order.id, 'accepted');
-        const ordersData = await fetchOrders();
-        setOrders(ordersData);
-        alert('Order accepted and stock deducted!');
+
+        if (!import.meta.env.VITE_SUPABASE_URL) {
+            const ordersData = await fetchOrders();
+            setOrders(ordersData);
+            alert('Order accepted and stock deducted!');
+        } else {
+            // Optimistic update for Supabase mode
+            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'accepted' } : o));
+        }
     };
 
     const handleRejectOrder = async (orderId: string) => {
+        const order = orders.find(o => o.id === orderId);
+        if (order && order.status !== 'pending') {
+            alert('This order has already been processed.');
+            return;
+        }
         await updateOrderStatus(orderId, 'rejected');
-        const ordersData = await fetchOrders();
-        setOrders(ordersData);
+
+        if (!import.meta.env.VITE_SUPABASE_URL) {
+            const ordersData = await fetchOrders();
+            setOrders(ordersData);
+        } else {
+            // Optimistic update for Supabase mode
+            setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'rejected' } : o));
+        }
     };
 
     if (loading) {
@@ -166,16 +238,20 @@ function App() {
                 <Routes>
                     <Route path="/staffview" element={
                         <>
-                            {(activeTab === 'dashboard' || activeTab === 'orders') && (
+                            {(activeTab === 'dashboard' || activeTab === 'orders' || activeTab === 'staff-gallery') && (
                                 <StaffDashboard
                                     designs={designs}
                                     orders={orders}
                                     updateInventory={updateInventory}
                                     deleteDesign={deleteDesign}
-                                    viewMode={activeTab === 'orders' ? 'orders' : 'inventory'}
-                                    setViewMode={(mode) => setActiveTab(mode === 'orders' ? 'orders' : 'dashboard')}
+                                    viewMode={activeTab === 'orders' ? 'orders' : activeTab === 'staff-gallery' ? 'gallery' : 'inventory'}
+                                    setViewMode={(mode) => {
+                                        if (mode === 'gallery') setActiveTab('staff-gallery');
+                                        else if (mode === 'orders') setActiveTab('orders');
+                                        else setActiveTab('dashboard');
+                                    }}
                                     onBack={() => {
-                                        if (activeTab === 'orders') {
+                                        if (activeTab === 'orders' || activeTab === 'staff-gallery') {
                                             setActiveTab('dashboard');
                                         } else {
                                             navigate('/customerview');

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Design, Order, AdultSizeStock, KidsSizeStock } from '../types';
-import { Search, Edit2, Trash2, Plus, ArrowLeftRight, Clock, CheckCircle2, XCircle, ShoppingBag, Download, FileSpreadsheet, Images, Loader2, ArrowLeft } from 'lucide-react';
+import { Search, Edit2, Trash2, Plus, ArrowLeftRight, Clock, CheckCircle2, XCircle, ShoppingBag, Download, FileSpreadsheet, Images, Loader2, ArrowLeft, Eye } from 'lucide-react';
 import { exportToCSV, exportImagesToZip, downloadSingleImage } from '../data';
 
 interface StaffDashboardProps {
@@ -13,13 +14,15 @@ interface StaffDashboardProps {
     onAcceptOrder: (order: Order) => Promise<void>;
     onRejectOrder: (orderId: string) => Promise<void>;
     onBack: () => void;
-    viewMode: 'inventory' | 'orders';
-    setViewMode: (mode: 'inventory' | 'orders') => void;
+    viewMode: 'inventory' | 'orders' | 'gallery';
+    setViewMode: (mode: 'inventory' | 'orders' | 'gallery') => void;
 }
 
 const StaffDashboard: React.FC<StaffDashboardProps> = ({
     designs, orders, updateInventory, deleteDesign, onEdit, onAddNew, onAcceptOrder, onRejectOrder, onBack, viewMode, setViewMode
 }) => {
+    const navigate = useNavigate();
+
     const [search, setSearch] = useState('');
     const [analyticsFilter, setAnalyticsFilter] = useState<'all' | 'low-stock'>('all');
     const [isExportingImages, setIsExportingImages] = useState(false);
@@ -113,6 +116,12 @@ ORDER RECEIPT
 -------------
 Order ID: ${order.id.toUpperCase()}
 Date: ${new Date(order.createdAt).toLocaleString()}
+
+Customer:
+Name: ${order.customerName}
+Phone: ${order.customerCountryCode} ${order.customerPhone}
+Address: ${order.customerAddress}
+
 Design: ${order.designId}
 Combo: ${order.comboType}
 
@@ -206,6 +215,12 @@ Status: ${order.status.toUpperCase()}
                             </button>
                         </div>
                     )}
+                    <button onClick={() => navigate('/customerview')} className="btn btn-secondary" style={{ padding: '8px 20px' }}>
+                        <Eye size={18} />
+                        <span className="tablet-up">Customer View</span>
+                        <span className="mobile-only" style={{ display: 'none' }}>View</span>
+                    </button>
+
                     <button onClick={onAddNew} className="btn btn-primary tablet-up" style={{ padding: '8px 20px' }}>
                         <Plus size={18} />
                         New Entry
@@ -274,7 +289,7 @@ Status: ${order.status.toUpperCase()}
                 </div>
             )}
 
-            {viewMode === 'inventory' ? (
+            {viewMode === 'inventory' && (
                 <>
                     {/* Desktop Table View */}
                     <div className="glass-card tablet-up" style={{ overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
@@ -418,7 +433,9 @@ Status: ${order.status.toUpperCase()}
                         ))}
                     </div>
                 </>
-            ) : (
+            )}
+
+            {viewMode === 'orders' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {pendingOrders.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '100px', opacity: 0.5 }}>
@@ -439,6 +456,15 @@ Status: ${order.status.toUpperCase()}
                                         <h3 style={{ margin: 0 }}>
                                             {designs.find(d => d.id === order.designId)?.name || 'Unknown Design'}
                                         </h3>
+
+                                        {/* Customer Details */}
+                                        <div style={{ marginTop: '8px', padding: '8px', background: 'var(--bg-secondary)', borderRadius: '8px', fontSize: '0.85rem' }}>
+                                            <div style={{ fontWeight: 600, marginBottom: '4px' }}>Customer Details:</div>
+                                            <div>{order.customerName}</div>
+                                            <div>{order.customerCountryCode && <span style={{ color: 'var(--text-muted)', marginRight: '4px' }}>{order.customerCountryCode}</span>}{order.customerPhone}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{order.customerAddress}</div>
+                                        </div>
+
                                         <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
                                             <span className="badge badge-info">{order.comboType}</span>
                                             {Object.entries(order.selectedSizes).map(([member, size]) => (
@@ -484,6 +510,82 @@ Status: ${order.status.toUpperCase()}
                     )}
                 </div>
             )}
+
+            {viewMode === 'gallery' && (
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: '24px',
+                    paddingBottom: '80px' // Space for mobile FAB
+                }}>
+                    {filteredDesigns.map(design => (
+                        <div key={design.id} className="glass-card" style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ position: 'relative', paddingTop: '100%' }}>
+                                <img
+                                    src={design.imageUrl}
+                                    alt={design.name}
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: 'cover'
+                                    }}
+                                />
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '12px',
+                                    right: '12px',
+                                    display: 'flex',
+                                    gap: '8px'
+                                }}>
+                                    <button
+                                        onClick={() => downloadSingleImage(design.imageUrl, design.name)}
+                                        className="btn glass-card"
+                                        style={{ padding: '8px', borderRadius: '50%', background: 'rgba(255,255,255,0.9)' }}
+                                        title="Download Image"
+                                    >
+                                        <Download size={16} color="var(--text-main)" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style={{ padding: '16px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                                <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>{design.name}</h3>
+                                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                    {design.color} • {design.fabric}
+                                </p>
+
+                                <div style={{ marginTop: 'auto', paddingTop: '16px', display: 'flex', gap: '8px' }}>
+                                    <button
+                                        onClick={() => onEdit(design)}
+                                        className="btn btn-secondary"
+                                        style={{ flexGrow: 1, justifyContent: 'center' }}
+                                    >
+                                        <Edit2 size={16} /> Edit
+                                    </button>
+                                    <button
+                                        onClick={() => deleteDesign(design.id)}
+                                        className="btn btn-ghost"
+                                        style={{ color: 'var(--danger)', padding: '8px' }}
+                                        title="Delete"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {filteredDesigns.length === 0 && (
+                        <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                            <Images size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
+                            <p>No designs found matching your search.</p>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Mobile FAB */}
             {viewMode === 'inventory' && (
                 <button onClick={onAddNew} className="fab mobile-only">

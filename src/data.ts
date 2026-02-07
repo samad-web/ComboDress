@@ -34,7 +34,11 @@ export const initialDesigns: Design[] = [
 
 // --- DESIGNS ---
 
+// Re-use mapOrderFromDB concept if needed, but for designs we already have simple mapping.
+// We can export a helper if we want to be consistent, but mapping is simple.
+
 export const fetchDesigns = async (): Promise<Design[]> => {
+    // ... (existing code)
     if (!isSupabaseConfigured) {
         const local = localStorage.getItem(DESIGNS_KEY);
         return local ? JSON.parse(local) : initialDesigns;
@@ -50,8 +54,6 @@ export const fetchDesigns = async (): Promise<Design[]> => {
         return initialDesigns;
     }
 
-    if (!data || data.length === 0) return initialDesigns;
-
     return data.map(item => ({
         id: item.id,
         name: item.name,
@@ -63,6 +65,21 @@ export const fetchDesigns = async (): Promise<Design[]> => {
         label: item.label,
         createdAt: Number(item.createdat)
     }));
+};
+
+export const subscribeToDesigns = (onUpdate: (payload: any) => void) => {
+    if (!isSupabaseConfigured) return () => { };
+
+    const subscription = supabase
+        .channel('designs_channel')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'designs' }, (payload) => {
+            onUpdate(payload);
+        })
+        .subscribe();
+
+    return () => {
+        supabase.removeChannel(subscription);
+    };
 };
 
 export const syncDesign = async (design: Design) => {
@@ -113,6 +130,21 @@ export const removeDesign = async (id: string) => {
 
 // --- ORDERS ---
 
+const mapOrderFromDB = (item: any): Order => ({
+    id: item.id,
+    designId: item.designid,
+    designName: 'Loading...', // resolved in UI
+    comboType: item.combotype,
+    selectedSizes: item.selectedsizes,
+    status: item.status,
+    customerName: item.customer_name || item.customerName || 'N/A',
+    customerPhone: (item.customer_phone || item.customerPhone || 'N/A').toString(),
+    customerCountryCode: item.customer_country_code || item.customerCountryCode || '+91',
+    customerAddress: item.customer_address || item.customerAddress || 'N/A',
+    createdAt: Number(item.createdat),
+    notes: item.notes
+});
+
 export const fetchOrders = async (): Promise<Order[]> => {
     if (!isSupabaseConfigured) {
         const local = localStorage.getItem(ORDERS_KEY);
@@ -129,17 +161,25 @@ export const fetchOrders = async (): Promise<Order[]> => {
         return [];
     }
 
-    return data.map(item => ({
-        id: item.id,
-        designId: item.designid,
-        // designName will be resolved in the UI using the designs list
-        designName: 'Loading...',
-        comboType: item.combotype,
-        selectedSizes: item.selectedsizes,
-        status: item.status,
-        createdAt: Number(item.createdat)
-    }));
+    return data.map(mapOrderFromDB);
 };
+
+export const subscribeToOrders = (onUpdate: (payload: any) => void) => {
+    if (!isSupabaseConfigured) return () => { };
+
+    const subscription = supabase
+        .channel('orders_channel')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+            onUpdate(payload);
+        })
+        .subscribe();
+
+    return () => {
+        supabase.removeChannel(subscription);
+    };
+};
+
+export { mapOrderFromDB };
 
 export const submitOrder = async (orderData: Partial<Order>) => {
     if (!isSupabaseConfigured) {
@@ -153,6 +193,10 @@ export const submitOrder = async (orderData: Partial<Order>) => {
             designName: design?.name || 'Unknown Design',
             comboType: orderData.comboType!,
             selectedSizes: orderData.selectedSizes!,
+            customerName: orderData.customerName!,
+            customerPhone: orderData.customerPhone!,
+            customerCountryCode: orderData.customerCountryCode || '+91',
+            customerAddress: orderData.customerAddress!,
             notes: orderData.notes,
             status: 'pending',
             createdAt: Date.now()
@@ -169,6 +213,10 @@ export const submitOrder = async (orderData: Partial<Order>) => {
             designid: orderData.designId,
             combotype: orderData.comboType,
             selectedsizes: orderData.selectedSizes,
+            customer_name: orderData.customerName,
+            customer_phone: orderData.customerPhone, // Supabase will coerce string to bigint
+            customer_country_code: orderData.customerCountryCode,
+            customer_address: orderData.customerAddress,
             notes: orderData.notes,
             status: 'pending',
             createdat: Date.now()

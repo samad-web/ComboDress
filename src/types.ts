@@ -49,6 +49,10 @@ export interface Order {
   designName?: string; // For display
   comboType: ComboType;
   selectedSizes: Record<string, string>;
+  customerName: string;
+  customerPhone: string; // Stored as bigint in DB, but string in UI to preserve precision/formatting
+  customerCountryCode: string;
+  customerAddress: string;
   notes?: Record<string, string>; // Per-member notes (ht, wt, etc)
   status: OrderStatus;
   createdAt: number;
